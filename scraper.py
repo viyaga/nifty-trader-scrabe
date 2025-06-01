@@ -11,14 +11,25 @@ USER_AGENT = (
 
 def scrape_once(page):
     """
-    Load the page, wait for the #calls_oi_Total element, and return its text.
+    Load the page, wait for the #calls_oi_Total element, and return the relevant OI values.
     If something goes wrong (timeout or block detection), return None.
     """
     try:
         page.goto(URL, timeout=60000)
         page.wait_for_selector("#calls_oi_Total", timeout=15000)
+
         calls_oi_text = page.query_selector("#calls_oi_Total").inner_text().strip()
-        return calls_oi_text
+        puts_oi_text = page.query_selector("#puts_oi_Total").inner_text().strip()
+        calls_change_oi_text = page.query_selector("#calls_change_oi_Total").inner_text().strip()
+        puts_change_oi_text = page.query_selector("#puts_change_oi_Total").inner_text().strip()
+
+        return {
+            "calls_oi": calls_oi_text,
+            "puts_oi": puts_oi_text,
+            "calls_change_oi": calls_change_oi_text,
+            "puts_change_oi": puts_change_oi_text,
+        }
+
     except PlaywrightTimeoutError:
         print("Timeout or element not found. Possible block or slow network.")
         return None
@@ -35,26 +46,27 @@ def main():
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp"
         })
 
-        # (Optional) Emulate a desktop viewport size
+        # Emulate desktop viewport
         page.set_viewport_size({"width": 1280, "height": 800})
 
         while True:
-            calls_oi = scrape_once(page)
+            oi_data = scrape_once(page)
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-            if calls_oi:
-                print(f"[{timestamp}] Calls OI Total: {calls_oi}")
-                # Here you could save to MongoDB or a CSV/file if needed.
+
+            if oi_data:
+                print(f"[{timestamp}] Calls OI: {oi_data['calls_oi']}, Puts OI: {oi_data['puts_oi']}, "
+                      f"Calls Change OI: {oi_data['calls_change_oi']}, Puts Change OI: {oi_data['puts_change_oi']}")
+                # Save to DB or file here if needed
             else:
                 print(f"[{timestamp}] Failed to scrape. Applying backoff.")
-                # Exponential backoff or sleep longer before retrying
                 time.sleep(60 * 5)  # Wait 5 minutes before retrying
                 continue
 
-            # Wait roughly 60 seconds, plus a 2–5 second random jitter
+            # Wait around 60 seconds with jitter
             sleep_time = 60 + random.uniform(2, 5)
             time.sleep(sleep_time)
 
-        # browser.close()  # Unreachable in this infinite loop; handle shutdown externally.
+        # browser.close() — Unreachable unless you handle shutdown gracefully
 
 if __name__ == "__main__":
     main()
