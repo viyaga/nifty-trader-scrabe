@@ -1,3 +1,5 @@
+#scraper.py
+
 import time
 import random
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
