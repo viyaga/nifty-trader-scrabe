@@ -8,6 +8,11 @@ USER_AGENT = (
     "Chrome/114.0.0.0 Safari/537.36"
 )
 
+# In-memory cache
+cached_data = None
+last_fetched = 0
+CACHE_TTL = 60  # 60 seconds
+
 async def scrape_once():
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -40,3 +45,18 @@ async def scrape_once():
             return None
         finally:
             await browser.close()
+
+# Caching wrapper
+async def get_cached_data():
+    global cached_data, last_fetched
+
+    now = time.time()
+    if cached_data and (now - last_fetched) < CACHE_TTL:
+        return cached_data
+
+    result = await scrape_once()
+    if result:
+        cached_data = result
+        last_fetched = now
+
+    return result
